@@ -1,0 +1,268 @@
+# define go_to1 26
+# define go_to2 28
+
+# define end1 24
+# define end2 22
+
+
+# define X_ENgnd  2 //ENA-(ENA) stepper motor enable , active low     Gray 
+# define X_EN_5v  3 //ENA+(+5V) stepper motor enable , active low     Orange
+# define X_DIRgnd 4 //DIR-(DIR) axis stepper motor direction control  Blue
+# define X_DIR_5v 5 //DIR+(+5v) axis stepper motor direction control  Brown
+# define X_STPgnd 6 //PUL-(PUL) axis stepper motor step control       Black
+# define X_STP_5v 7 //PUL+(+5v) axis stepper motor step control       RED
+
+
+int in1 = 50;
+
+long  X=40000;
+boolean ComData = false;
+int MoveSpeed=100;
+
+int posit=1;
+int calibrated=0;
+
+void setup() 
+{
+  pinMode(in1, OUTPUT);
+  
+  digitalWrite(in1, HIGH);
+
+  
+  Serial.begin(115200);
+  //configure pin 2 as an input and enable the internal pull-up resistor
+  pinMode(go_to1, INPUT_PULLUP);
+  pinMode(go_to2, INPUT_PULLUP);
+  pinMode(end1, INPUT_PULLUP);
+  pinMode(end2, INPUT_PULLUP);
+  
+  
+
+   setUPMotor();
+  
+}
+
+void setUPMotor()
+{
+pinMode (X_ENgnd ,OUTPUT); //ENA-(ENA)
+pinMode (X_EN_5v ,OUTPUT); //ENA+(+5V)
+pinMode (X_DIRgnd,OUTPUT); //DIR-(DIR)
+pinMode (X_DIR_5v,OUTPUT); //DIR+(+5v)
+pinMode (X_STPgnd,OUTPUT); //PUL-(PUL)
+pinMode (X_STP_5v,OUTPUT); //PUL+(+5v)
+pinMode (13,OUTPUT);
+
+
+
+digitalWrite (X_ENgnd,  LOW); //ENA-(ENA)
+digitalWrite (X_EN_5v, HIGH); //ENA+(+5V) low=enabled
+digitalWrite (X_DIRgnd, LOW); //DIR-(DIR)
+digitalWrite (X_DIR_5v, LOW); //DIR+(+5v)
+digitalWrite (X_STPgnd, LOW); //PUL-(PUL)
+digitalWrite (X_STP_5v, LOW); //PUL+(+5v)
+
+
+digitalWrite (X_EN_5v, LOW);
+}
+
+void loop() 
+{
+  
+  int dir1 = digitalRead(go_to1);
+  int dir2 = digitalRead(go_to2);
+
+  
+  if (dir1 == HIGH && dir2 == HIGH && calibrated<=0) 
+  {
+    Serial.print("Calibration");
+        digitalWrite(in1, LOW);
+        calibrate();
+        MoveForce(0);
+        X=0;
+        calibrated=1;
+        digitalWrite(in1, HIGH);
+        posit=0;
+  } 
+  else if (dir1 == HIGH && dir2 == LOW &&  posit!=1 ) 
+  { 
+    Serial.print("Go       1");
+     calibrated--;
+     digitalWrite(in1, LOW);
+     MoveX(0, dir1, dir2);
+     digitalWrite(in1, HIGH);
+     if (X==0)
+     posit=1;
+     else
+     posit=0;
+  }
+  else if (dir2 == HIGH && dir1 == LOW && posit!=2)
+  {
+    Serial.print("Go       2");
+     calibrated--;
+    digitalWrite(in1, LOW);
+     MoveX(66000, dir1, dir2);
+     
+    digitalWrite(in1, HIGH);
+    if (X==66000)
+    posit=2;
+    else
+     posit=0;
+  }
+}
+
+void MoveX(long NX, int a, int b)
+{ // **************************************************************    Move
+int xt;
+
+
+if (NX>X)
+{
+  xt=NX-X; digitalWrite (X_DIR_5v,LOW);xt=1;
+}
+else
+{
+  xt=X-NX; digitalWrite (X_DIR_5v,HIGH);xt=-1;
+}
+if (ComData==true)
+{
+  
+  for (; X !=NX; X=X+xt)
+  {  
+     digitalWrite (X_STP_5v, HIGH);
+     Serial.print("X=");
+     delayMicroseconds (MoveSpeed);
+     digitalWrite (X_STP_5v, LOW);
+     delayMicroseconds (MoveSpeed);
+     Serial.println(X+100000);
+     
+  }}
+else
+{
+  for (; X !=NX; X=X+xt)
+  {
+    if (a==digitalRead(go_to1) && (b==digitalRead(go_to2)))
+    {
+    if (digitalRead(end1)!=0 && digitalRead(end2)!=0)
+    {
+     digitalWrite (X_STP_5v, HIGH);
+     delayMicroseconds (MoveSpeed);
+     digitalWrite (X_STP_5v, LOW);
+     delayMicroseconds (MoveSpeed);
+    }
+    else
+    {
+      if (digitalRead(end2)==0)
+      {
+        X=66600;
+        MoveForce(66000);
+        break;
+      }
+      else if (digitalRead(end1)==0)
+      {
+        X=-1000;
+        MoveForce(0);
+        break;
+      }
+    }
+    }
+    else
+    {
+      break;
+    }
+  }
+}
+
+Serial.print("X=");
+Serial.println(X);
+}
+
+void calibrate()
+{ // **************************************************************    Move
+int xt;
+long NX=-100000;
+if (NX>X)
+{
+  xt=NX-X; digitalWrite (X_DIR_5v,LOW);xt=1;
+}
+else
+{
+  xt=X-NX; digitalWrite (X_DIR_5v,HIGH);xt=-1;
+}
+if (ComData==true)
+{
+  
+  for (; X !=NX; X=X+xt)
+  {  
+    if (digitalRead(end1)!=0)
+    {
+     digitalWrite (X_STP_5v, HIGH);
+     Serial.print("X=");
+     delayMicroseconds (MoveSpeed);
+     digitalWrite (X_STP_5v, LOW);
+     delayMicroseconds (MoveSpeed);
+     Serial.println(X+100000);
+    }
+    
+  }}
+else
+{
+  for (; X !=NX; X=X+xt)
+  {
+    if (digitalRead(end1)!=0)
+    {
+     digitalWrite (X_STP_5v, HIGH);
+     delayMicroseconds (MoveSpeed);
+     digitalWrite (X_STP_5v, LOW);
+     delayMicroseconds (MoveSpeed);
+    }
+    else
+    {
+      X=-1000;
+      break;
+    }
+  }
+}
+Serial.print("X=");
+Serial.println(X);
+}
+
+void MoveForce(long NX)
+{ // **************************************************************    Move
+int xt;
+if (NX>X)
+{
+  xt=NX-X; digitalWrite (X_DIR_5v,LOW);xt=1;
+}
+else
+{
+  xt=X-NX; digitalWrite (X_DIR_5v,HIGH);xt=-1;
+}
+if (ComData==true)
+{
+  
+  for (; X !=NX; X=X+xt)
+  {  
+     digitalWrite (X_STP_5v, HIGH);
+     Serial.print("X=");
+     delayMicroseconds (MoveSpeed);
+     digitalWrite (X_STP_5v, LOW);
+     delayMicroseconds (MoveSpeed);
+     Serial.println(X+100000);
+     
+  }}
+else
+{
+  for (; X !=NX; X=X+xt)
+  {
+   
+     digitalWrite (X_STP_5v, HIGH);
+     delayMicroseconds (MoveSpeed);
+     digitalWrite (X_STP_5v, LOW);
+     delayMicroseconds (MoveSpeed);
+    
+
+  }
+}
+Serial.print("X=");
+Serial.println(X);
+}
